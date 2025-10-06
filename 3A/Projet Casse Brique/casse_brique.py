@@ -28,18 +28,38 @@ class classe_raquette:
         self.largeur = largeur
         self.hauteur = hauteur
         self.couleur = couleur
+        self.vitesse = 10
         self.id = None
     
     def afficher(self,canvas):
         self.id = canvas.create_rectangle(self.x, self.y, self.x + self.largeur, self.y + self.hauteur, fill = self.couleur)
 
+    def deplacer_gauche(self, canvas, event=None):
+        if self.x - self.vitesse >= 0:
+            self.x -= self.vitesse
+            canvas.move(self.id, -self.vitesse, 0)
+
+    def deplacer_droite(self, canvas, event=None):
+        if self.x + self.largeur + self.vitesse <= canvas.winfo_width():
+            self.x += self.vitesse
+            canvas.move(self.id, self.vitesse, 0)
 
 # === Programme principal ===
 fenetre = Tk()
 fenetre.title("Casse-briques")
+
 fond = Canvas(fenetre, width=600, height=400, bg="lightblue")
 fond.pack()
-classe_raquette(260).afficher(fond)
+
+# Affichage de la raquette
+raquette = classe_raquette(260)
+raquette.afficher(fond)
+
+# Déplacement de la raquette
+fond.focus_set()
+fenetre.bind("<Left>", lambda event: raquette.deplacer_gauche(fond, event))
+fenetre.bind("<Right>", lambda event: raquette.deplacer_droite(fond, event))
+
 
 # Création et affichage des briques
 liste_brique = []

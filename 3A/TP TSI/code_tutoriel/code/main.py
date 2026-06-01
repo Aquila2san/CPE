@@ -16,10 +16,8 @@ class Game(object):
         self.init_context()
         self.init_programs()
         self.init_data()
-        self.X = 0
-        self.Y = 0
-        self.Z = -5.0
-        self.angle_X = 0.0
+        
+        self.pos = np.array([0.0, 0.0, -5.0], dtype=np.float32)
         self.angle_Y = 0.0
         
 
@@ -194,70 +192,63 @@ class Game(object):
     def run(self):
         # boucle d'affichage
         while not glfw.window_should_close(self.window):
-            # gestion du temps
             t = glfw.get_time()
-            # choix de la couleur de fond
             GL.glClearColor(0.65, 0, 0.35, 1.0)
-            # nettoyage de la fenêtre : fond et profondeur
             GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
-            # récupération des uniform et du porgramme actif
+            
             prog = GL.glGetIntegerv(GL.GL_CURRENT_PROGRAM) 
-            loc = GL.glGetUniformLocation(prog, "translation") 
+            loc_model = GL.glGetUniformLocation(prog, "model")
             loc_proj = GL.glGetUniformLocation(prog, "projection")
-            loc_rot = GL.glGetUniformLocation(prog, "rotation")
-            # déplacement du triangle
-            if glfw.get_key(self.window, glfw.KEY_RIGHT)==glfw.PRESS:
-                self.X += 0.01
-            if glfw.get_key(self.window, glfw.KEY_LEFT)==glfw.PRESS:
-                self.X -= 0.01
-            if glfw.get_key(self.window, glfw.KEY_UP)==glfw.PRESS:
-                self.Y += 0.01
-            if glfw.get_key(self.window, glfw.KEY_DOWN)==glfw.PRESS:
-                self.Y -= 0.01
+            
+            # Flèches Gauche/Droite -> Rotation de l'objet autour de l'axe Y
+            if glfw.get_key(self.window, glfw.KEY_RIGHT) == glfw.PRESS:
+                self.angle_Y -= 0.03
+            if glfw.get_key(self.window, glfw.KEY_LEFT) == glfw.PRESS:
+                self.angle_Y += 0.03
+
+            # Calcul du vecteur directionnel horizontal de l'objet (Forward Vector)
+            forward = np.array([np.sin(self.angle_Y), 0.0, -np.cos(self.angle_Y)], dtype=np.float32)
+
+            # Flèches Haut/Bas -> Avancer/Reculer dans la direction de l'orientation
+            if glfw.get_key(self.window, glfw.KEY_UP) == glfw.PRESS:
+                self.pos += forward * 0.02
+            if glfw.get_key(self.window, glfw.KEY_DOWN) == glfw.PRESS:
+                self.pos -= forward * 0.02
+
+            # Touches Y/H -> Ajustement manuel de l'altitude (axe Y)
             if glfw.get_key(self.window, glfw.KEY_Y) == glfw.PRESS:
-                self.Z += 0.01
+                self.pos[1] += 0.02
             if glfw.get_key(self.window, glfw.KEY_H) == glfw.PRESS:
-                self.Z -= 0.01
-            # rotation du triangle
-            if glfw.get_key(self.window, glfw.KEY_I) == glfw.PRESS:
-                self.angle_X += 0.01
-            if glfw.get_key(self.window, glfw.KEY_K) == glfw.PRESS:
-                self.angle_X -= 0.01
-            if glfw.get_key(self.window, glfw.KEY_J) == glfw.PRESS:
-                self.angle_Y += 0.01
-            if glfw.get_key(self.window, glfw.KEY_L) == glfw.PRESS:
-                self.angle_Y -= 0.01
-            # Calcul des matrices
+                self.pos[1] -= 0.02
+                
+            # Calcul de la matrice globale de Projection
             proj_matrix = pyrr.matrix44.create_perspective_projection_matrix(50.0, 1.0, 0.5, 10.0)
-            rotX_33 = pyrr.matrix33.create_from_x_rotation(self.angle_X)
-            rotY_33 = pyrr.matrix33.create_from_y_rotation(self.angle_Y)
-            rotX_44 = pyrr.matrix44.create_from_matrix33(rotX_33)
-            rotY_44 = pyrr.matrix44.create_from_matrix33(rotY_33)
-            rot_mult_44 = pyrr.matrix44.multiply(rotX_44, rotY_44)
-            mat_identite = pyrr.matrix44.create_identity()
-            # Envoi des données au GPU
             GL.glUniformMatrix4fv(loc_proj, 1, GL.GL_FALSE, proj_matrix)
+            
             GL.glBindVertexArray(self.vao)
             
-            GL.glUniformMatrix4fv(loc_rot, 1, GL.GL_FALSE, rot_mult_44)
-            GL.glUniform4f(loc, self.X, self.Y, self.Z, 1.0)
+            # Création des matrices de base
+            rot_matrix = pyrr.matrix44.create_from_y_rotation(self.angle_Y)
+            trans_matrix = pyrr.matrix44.create_from_translation(self.pos)
+            # Combinaison 
+            model_obj1 = pyrr.matrix44.multiply(rot_matrix, trans_matrix)
+            
+            # Envoi et dessin
+            GL.glUniformMatrix4fv(loc_model, 1, GL.GL_FALSE, model_obj1)
             GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id1)
             GL.glDrawElements(GL.GL_TRIANGLES, self.nb_indices, GL.GL_UNSIGNED_INT, None)
             
-            GL.glUniformMatrix4fv(loc_rot, 1, GL.GL_FALSE, mat_identite)
-            GL.glUniform4f(loc, 1.5, 0.0, -5.0, 1.0) 
+            model_obj2 = pyrr.matrix44.create_from_translation(np.array([1.5, 0.0, -5.0]))
+            GL.glUniformMatrix4fv(loc_model, 1, GL.GL_FALSE, model_obj2)
             GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id1) 
             GL.glDrawElements(GL.GL_TRIANGLES, self.nb_indices, GL.GL_UNSIGNED_INT, None)
             
-            GL.glUniformMatrix4fv(loc_rot, 1, GL.GL_FALSE, mat_identite)
-            GL.glUniform4f(loc, 1.5, -1.2, -5.0, 1.0) 
+            model_obj3 = pyrr.matrix44.create_from_translation(np.array([1.5, -1.2, -5.0]))
+            GL.glUniformMatrix4fv(loc_model, 1, GL.GL_FALSE, model_obj3)
             GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id2) 
             GL.glDrawElements(GL.GL_TRIANGLES, self.nb_indices, GL.GL_UNSIGNED_INT, None)
             
-            GL.glEnable(GL.GL_DEPTH_TEST)
-            # changement de buffer d'affichage pour éviter un effet de scintillement
             glfw.swap_buffers(self.window)
-            # gestion des évènements
             glfw.poll_events()
             
                 

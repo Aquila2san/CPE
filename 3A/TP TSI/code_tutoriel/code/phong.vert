@@ -5,8 +5,7 @@ layout (location = 1) in vec3 normale;
 layout (location = 2) in vec3 couleur;
 layout (location = 3) in vec2 texCoord;
 
-uniform vec4 translation;
-uniform mat4 rotation;
+uniform mat4 model;
 uniform mat4 projection;
 
 out vec3 coordonnee_3d;
@@ -18,22 +17,16 @@ out vec2 vtex;
 //Un Vertex Shader minimaliste
 void main (void)
 {
-  //Les coordonnees 3D du sommet
-  coordonnee_3d = position;
-
-  //Coordonnees du sommet
-  vec4 p = rotation*vec4(position, 1.0)+translation;
+  // Application de la matrice de modèle 4x4 unique (Rotation puis Translation intégrées)
+  vec4 p = model * vec4(position, 1.0);
   coordonnee_3d_locale = p.xyz;
-
-  //Projection du sommet
-  p = projection*p;
-
-  //Gestion des normales
-  vec4 n = rotation*vec4(normale, 0.0);
+  
+  gl_Position = projection * p;
+  
+  // Les normales ne subissent pas la translation, uniquement la rotation (W = 0.0)
+  vec4 n = model * vec4(normale, 0.0);
   vnormale = n.xyz;
+  
   vcouleur = couleur;
   vtex = texCoord;
-
-  //position dans l'espace ecran
-  gl_Position = p;
 }

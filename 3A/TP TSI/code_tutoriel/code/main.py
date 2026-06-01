@@ -88,81 +88,44 @@ class Game(object):
         pass
         
     def init_data(self):
-        sommets = np.array((
-            (0.0, 0.0, 1.0,  0.0, 0.0, 1.0,  1.0, 0.0, 0.0,  0.0, 0.0), # p0
-            (1.0, 0.0, 1.0,  0.0, 0.0, 1.0,  1.0, 0.0, 0.0,  1.0, 0.0), # p1
-            (1.0, 1.0, 1.0,  0.0, 0.0, 1.0,  1.0, 0.0, 0.0,  1.0, 1.0), # p2
-            (0.0, 1.0, 1.0,  0.0, 0.0, 1.0,  1.0, 0.0, 0.0,  0.0, 1.0), # p3
+        from ctypes import sizeof, c_float, c_void_p
 
-            (1.0, 0.0, 0.0,  0.0, 0.0, -1.0, 0.0, 1.0, 0.0,  0.0, 0.0), # p4
-            (0.0, 0.0, 0.0,  0.0, 0.0, -1.0, 0.0, 1.0, 0.0,  1.0, 0.0), # p5
-            (0.0, 1.0, 0.0,  0.0, 0.0, -1.0, 0.0, 1.0, 0.0,  1.0, 1.0), # p6
-            (1.0, 1.0, 0.0,  0.0, 0.0, -1.0, 0.0, 1.0, 0.0,  0.0, 1.0), # p7
-
-            (1.0, 0.0, 1.0,  1.0, 0.0, 0.0,  0.0, 0.0, 1.0,  0.0, 0.0), # p8
-            (1.0, 0.0, 0.0,  1.0, 0.0, 0.0,  0.0, 0.0, 1.0,  1.0, 0.0), # p9
-            (1.0, 1.0, 0.0,  1.0, 0.0, 0.0,  0.0, 0.0, 1.0,  1.0, 1.0), # p10
-            (1.0, 1.0, 1.0,  1.0, 0.0, 0.0,  0.0, 0.0, 1.0,  0.0, 1.0), # p11
-
-            (0.0, 0.0, 0.0, -1.0, 0.0, 0.0,  1.0, 1.0, 0.0,  0.0, 0.0), # p12
-            (0.0, 0.0, 1.0, -1.0, 0.0, 0.0,  1.0, 1.0, 0.0,  1.0, 0.0), # p13
-            (0.0, 1.0, 1.0, -1.0, 0.0, 0.0,  1.0, 1.0, 0.0,  1.0, 1.0), # p14
-            (0.0, 1.0, 0.0, -1.0, 0.0, 0.0,  1.0, 1.0, 0.0,  0.0, 1.0), # p15
-
-            (0.0, 1.0, 1.0,  0.0, 1.0, 0.0,  0.0, 1.0, 1.0,  0.0, 0.0), # p16
-            (1.0, 1.0, 1.0,  0.0, 1.0, 0.0,  0.0, 1.0, 1.0,  1.0, 0.0), # p17
-            (1.0, 1.0, 0.0,  0.0, 1.0, 0.0,  0.0, 1.0, 1.0,  1.0, 1.0), # p18
-            (0.0, 1.0, 0.0,  0.0, 1.0, 0.0,  0.0, 1.0, 1.0,  0.0, 1.0), # p19
-
-            (0.0, 0.0, 0.0,  0.0, -1.0, 0.0, 1.0, 0.0, 1.0,  0.0, 0.0), # p20
-            (1.0, 0.0, 0.0,  0.0, -1.0, 0.0, 1.0, 0.0, 1.0,  1.0, 0.0), # p21
-            (1.0, 0.0, 1.0,  0.0, -1.0, 0.0, 1.0, 0.0, 1.0,  1.0, 1.0), # p22
-            (0.0, 0.0, 1.0,  0.0, -1.0, 0.0, 1.0, 0.0, 1.0,  0.0, 1.0)  # p23
-        ), np.float32)
-        index = np.array((
-            (0, 1, 2),    (0, 2, 3),      # Face avant
-            (4, 5, 6),    (4, 6, 7),      # Face arrière
-            (8, 9, 10),   (8, 10, 11),    # Face droite
-            (12, 13, 14), (12, 14, 15),   # Face gauche
-            (16, 17, 18), (16, 18, 19),   # Face supérieure
-            (20, 21, 22), (20, 22, 23)    # Face inférieure
-        ), np.uint32)
-        # attribution d'une liste d'´etat (1 indique la cr´eation d'une seule liste) 
-        self.vao = GL.glGenVertexArrays(1) 
-        # affectation de la liste d'´etat courante 
-        GL.glBindVertexArray(self.vao) 
-        # attribution d’un buffer de donn´ees (1 indique la cr´eation d’un seul buffer) 
-        vbo = GL.glGenBuffers(1) 
-        # affectation du buffer courant 
-        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, vbo)
-        # copie des donnees des sommets sur la carte graphique 
-        GL.glBufferData(GL.GL_ARRAY_BUFFER, sommets, GL.GL_STATIC_DRAW)
-        # Les deux commandes suivantes sont stock´ees dans l'´etat du vao courant 
-        # Active l'utilisation des donn´ees de positions 
-        # (le 0 correspond `a la location dans le vertex shader) 
-        stride = 11*sizeof(c_float())
-        GL.glEnableVertexAttribArray(0) 
-        # Indique comment le buffer courant (dernier vbo "bind´e") 
-        # est utilis´e pour les positions des sommets 
-        GL.glVertexAttribPointer(0, 3, GL.GL_FLOAT, GL.GL_FALSE, stride, None)
+        # Q62 : Génération procédurale de la géométrie de la sphère
+        donnees_sphere = Game.generate_sphere(radius=1.0, lat_segments=16, lon_segments=32)
+        sommets = donnees_sphere['interlaced']
+        index = donnees_sphere['faces']
         
+        # Stockage dynamique du nombre d'indices pour l'appel de dessin
+        self.nb_indices = index.size
+
+        self.vao = GL.glGenVertexArrays(1) 
+        GL.glBindVertexArray(self.vao) 
+        
+        vbo = GL.glGenBuffers(1) 
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, vbo)
+        GL.glBufferData(GL.GL_ARRAY_BUFFER, sommets, GL.GL_STATIC_DRAW)
+        
+        stride = 11 * sizeof(c_float)
+
+        # Configuration des pointeurs d'attributs (Format inchangé)
+        GL.glEnableVertexAttribArray(0) 
+        GL.glVertexAttribPointer(0, 3, GL.GL_FLOAT, GL.GL_FALSE, stride, None)
+
         GL.glEnableVertexAttribArray(1) 
         GL.glVertexAttribPointer(1, 3, GL.GL_FLOAT, GL.GL_FALSE, stride, c_void_p(3 * sizeof(c_float)))
-        
+
         GL.glEnableVertexAttribArray(2) 
         GL.glVertexAttribPointer(2, 3, GL.GL_FLOAT, GL.GL_FALSE, stride, c_void_p(6 * sizeof(c_float)))
-        
+
         GL.glEnableVertexAttribArray(3) 
         GL.glVertexAttribPointer(3, 2, GL.GL_FLOAT, GL.GL_FALSE, stride, c_void_p(9 * sizeof(c_float)))
-        # attribution d’un autre buffer de donnees 
-        vboi = GL.glGenBuffers(1) 
-        # affectation du buffer courant (buffer d’indice) 
-        GL.glBindBuffer(GL.GL_ELEMENT_ARRAY_BUFFER,vboi) 
-        # copie des indices sur la carte graphique 
-        GL.glBufferData(GL.GL_ELEMENT_ARRAY_BUFFER,index,GL.GL_STATIC_DRAW)
+
+        vboi = GL.glGenBuffers(1)
+        GL.glBindBuffer(GL.GL_ELEMENT_ARRAY_BUFFER, vboi)
+        GL.glBufferData(GL.GL_ELEMENT_ARRAY_BUFFER, index, GL.GL_STATIC_DRAW)
+
         self.texture_id1 = Game.load_texture('texture.png')
         self.texture_id2 = Game.load_texture('texture2.png')
-        pass
 
     def load_texture(filename):
         if not os.path.exists(filename):
@@ -279,17 +242,17 @@ class Game(object):
             GL.glUniformMatrix4fv(loc_rot, 1, GL.GL_FALSE, rot_mult_44)
             GL.glUniform4f(loc, self.X, self.Y, self.Z, 1.0)
             GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id1)
-            GL.glDrawElements(GL.GL_TRIANGLES, 36, GL.GL_UNSIGNED_INT, None)
+            GL.glDrawElements(GL.GL_TRIANGLES, self.nb_indices, GL.GL_UNSIGNED_INT, None)
             
             GL.glUniformMatrix4fv(loc_rot, 1, GL.GL_FALSE, mat_identite)
             GL.glUniform4f(loc, 1.5, 0.0, -5.0, 1.0) 
             GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id1) 
-            GL.glDrawElements(GL.GL_TRIANGLES, 36, GL.GL_UNSIGNED_INT, None)
+            GL.glDrawElements(GL.GL_TRIANGLES, self.nb_indices, GL.GL_UNSIGNED_INT, None)
             
             GL.glUniformMatrix4fv(loc_rot, 1, GL.GL_FALSE, mat_identite)
             GL.glUniform4f(loc, 1.5, -1.2, -5.0, 1.0) 
             GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id2) 
-            GL.glDrawElements(GL.GL_TRIANGLES, 36, GL.GL_UNSIGNED_INT, None)
+            GL.glDrawElements(GL.GL_TRIANGLES, self.nb_indices, GL.GL_UNSIGNED_INT, None)
             
             GL.glEnable(GL.GL_DEPTH_TEST)
             # changement de buffer d'affichage pour éviter un effet de scintillement

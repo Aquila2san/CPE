@@ -2,6 +2,8 @@
 
 layout (location = 0) in vec3 position;
 layout (location = 1) in vec3 normale;
+layout (location = 2) in vec3 couleur;
+layout (location = 3) in vec2 texCoord;
 
 uniform vec4 translation;
 uniform mat4 rotation;
@@ -10,6 +12,8 @@ uniform mat4 projection;
 out vec3 coordonnee_3d;
 out vec3 coordonnee_3d_locale;
 out vec3 vnormale;
+out vec3 vcouleur;
+out vec2 vtex;
 
 //Un Vertex Shader minimaliste
 void main (void)
@@ -27,6 +31,8 @@ void main (void)
   //Gestion des normales
   vec4 n = rotation*vec4(normale, 0.0);
   vnormale = n.xyz;
+  vcouleur = couleur;
+  vtex = texCoord;
 
   //position dans l'espace ecran
   gl_Position = p;

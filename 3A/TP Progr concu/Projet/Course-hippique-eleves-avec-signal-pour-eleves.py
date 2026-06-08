@@ -1,0 +1,173 @@
+# juin 2024 : 
+# os._exit() à la place de sys.exit()
+# Cours hippique
+# Version très basique, sans mutex sur l'écran, sans arbitre, sans annoncer le gagant, ... ...
+
+# Quelques codes d'échappement (tous ne sont pas utilisés)
+CLEARSCR="\x1B[2J\x1B[;H"          #  Clear SCReen
+CLEAREOS = "\x1B[J"                #  Clear End Of Screen
+CLEARELN = "\x1B[2K"               #  Clear Entire LiNe
+CLEARCUP = "\x1B[1J"               #  Clear Curseur UP
+GOTOYX   = "\x1B[%.2d;%.2dH"       #  ('H' ou 'f') : Goto at (y,x), voir le code
+
+DELAFCURSOR = "\x1B[K"             #  effacer après la position du curseur
+CRLF  = "\r\n"                     #  Retour à la ligne
+
+# VT100 : Actions sur le curseur
+CURSON   = "\x1B[?25h"             #  Curseur visible
+CURSOFF  = "\x1B[?25l"             #  Curseur invisible
+
+# VT100 : Actions sur les caractères affichables
+NORMAL = "\x1B[0m"                  #  Normal
+BOLD = "\x1B[1m"                    #  Gras
+UNDERLINE = "\x1B[4m"               #  Souligné
+
+
+# VT100 : Couleurs : "22" pour normal intensity
+CL_BLACK="\033[22;30m"                  #  Noir. NE PAS UTILISER. On verra rien !!
+CL_RED="\033[22;31m"                    #  Rouge
+CL_GREEN="\033[22;32m"                  #  Vert
+CL_BROWN = "\033[22;33m"                #  Brun
+CL_BLUE="\033[22;34m"                   #  Bleu
+CL_MAGENTA="\033[22;35m"                #  Magenta
+CL_CYAN="\033[22;36m"                   #  Cyan
+CL_GRAY="\033[22;37m"                   #  Gris
+
+# "01" pour quoi ? (bold ?)
+CL_DARKGRAY="\033[01;30m"               #  Gris foncé
+CL_LIGHTRED="\033[01;31m"               #  Rouge clair
+CL_LIGHTGREEN="\033[01;32m"             #  Vert clair
+CL_YELLOW="\033[01;33m"                 #  Jaune
+CL_LIGHTBLU= "\033[01;34m"              #  Bleu clair
+CL_LIGHTMAGENTA="\033[01;35m"           #  Magenta clair
+CL_LIGHTCYAN="\033[01;36m"              #  Cyan clair
+CL_WHITE="\033[01;37m"                  #  Blanc
+
+#-------------------------------------------------------
+import multiprocessing as mp
+import os, time,math, random, sys, ctypes, signal
+
+# Une liste de couleurs à affecter aléatoirement aux chevaux
+lyst_colors=[CL_WHITE, CL_RED, CL_GREEN, CL_BROWN , CL_BLUE, CL_MAGENTA, CL_CYAN, CL_GRAY,
+             CL_DARKGRAY, CL_LIGHTRED, CL_LIGHTGREEN,  CL_LIGHTBLU, CL_YELLOW, CL_LIGHTMAGENTA, CL_LIGHTCYAN]
+
+def effacer_ecran() : print(CLEARSCR,end='')
+def erase_line_from_beg_to_curs() : print("\033[1K",end='')
+def curseur_invisible() : print(CURSOFF,end='')
+def curseur_visible() : print(CURSON,end='')
+def move_to(lig, col) : print("\033[" + str(lig) + ";" + str(col) + "f",end='')
+
+def en_couleur(Coul) : print(Coul,end='')
+def en_rouge() : print(CL_RED,end='') # Un exemple !
+def erase_line() : print(CLEARELN,end='')  
+
+# La tache d'un cheval
+def un_cheval(ma_ligne : int, keep_running, positions_partagees, verrou_ecran) : # ma_ligne commence à 0
+    col=1
+
+    while col < LONGEUR_COURSE and keep_running.value :
+        col+=1
+        time.sleep(0.1 * random.randint(1,5))        
+        # Mise à jour de la position dans le tableau
+        positions_partagees[ma_ligne] = col
+
+        # Verrouillage de l'écran pendant le dessin
+        with verrou_ecran:
+            move_to(ma_ligne+1, 1) # On se repositionne au début pour effacer proprement
+            erase_line()           
+            move_to(ma_ligne+1, col)
+            en_couleur(lyst_colors[ma_ligne%len(lyst_colors)])
+            print('('+chr(ord('A')+ma_ligne)+'>', end='') # Utilisation de end='' pour garder le contrôle
+            print(NORMAL, end='')                         # Réinitialise la couleur du terminal
+            sys.stdout.flush()                            # Force l'envoi immédiat des caractères à l'écran
+        
+    # Le premier arrivée gèle la course !
+    # J'ai fini, je me dis à tout le monde
+    keep_running.value=False
+        
+#------------------------------------------------
+def detourner_signal(signum, stack_frame) :
+    move_to(24, 1)
+    erase_line()
+    move_to(24, 1)
+    curseur_visible()
+    print("La course est interrompu ...")
+    os._exit(0) # C'est mieux, "sys.exit(n)" ne termine pas bien car il lève un exception et si on est dans un block try-except qui ignore le "raise"", on est mal !!
+# ---------------------------------------------------
+
+def arbitre(keep_running, positions_partagees, verrou_ecran, nb_process):
+    ligne_arbitre = nb_process + 3
+    
+    while keep_running.value:
+        time.sleep(0.15) # Fréquence de rafraîchissement de l'arbitrage
+        
+        # Lecture instantanée du tableau partagé
+        pos_locales = list(positions_partagees)
+        max_pos = max(pos_locales)
+        min_pos = min(pos_locales)
+        
+        # Récupération de l'indice converti en lettre
+        cheval_tete = chr(ord('A') + pos_locales.index(max_pos))
+        cheval_dernier = chr(ord('A') + pos_locales.index(min_pos))
+        
+        with verrou_ecran:
+            move_to(ligne_arbitre, 1)
+            erase_line()
+            en_couleur(CL_RED)
+            print(f"Meilleur : ({cheval_tete}> en position {max_pos}, Pire : ({cheval_dernier}> en position {min_pos}")
+            print(NORMAL, end="")
+            sys.stdout.flush()
+
+    # Traitement final de la course
+    pos_finales = list(positions_partagees)
+    meilleure_pos = max(pos_finales)
+    gagnants = [chr(ord('A') + i) for i, pos in enumerate(pos_finales) if pos == meilleure_pos]
+    
+    with verrou_ecran:
+        move_to(ligne_arbitre + 1, 1)
+        erase_line()
+        en_couleur(CL_LIGHTGREEN)
+        print(f"Gagnant(s) final(s) : {', '.join(gagnants)} (Position {meilleure_pos})")
+        print(NORMAL, end="")
+        sys.stdout.flush()
+    
+# La partie principale :
+if __name__ == "__main__" :
+         
+    import platform
+    if platform.system() == "Darwin" :
+        mp.set_start_method('fork') # Nécessaire sous macos, OK pour Linux (voir le fichier des sujets)
+        
+    LONGEUR_COURSE = 50 # Tout le monde aura la même copie (donc no need to have a 'value')
+    keep_running=mp.Value(ctypes.c_bool, True)
+    # Un verrou pour empêcher les processus d'écrire en même temps sur l'écran
+    verrou_ecran = mp.Lock()
+    # Un tableau de 20 entiers pour stocker la colonne de chaque cheval pour l'arbitre
+    positions_partagees = mp.Array('i', [1] * 20)
+     
+    Nb_process=20
+    mes_process = [0 for i in range(Nb_process)]
+    
+    
+    effacer_ecran()
+    curseur_invisible()
+    
+    # Détournement d'interruption
+    signal.signal(signal.SIGINT, detourner_signal) # CTRL_C_EVENT   ?
+
+    for i in range(Nb_process):  
+        mes_process[i] = mp.Process(target=un_cheval, args=(i, keep_running, positions_partagees, verrou_ecran))
+        mes_process[i].start()
+
+    p_arbitre = mp.Process(target=arbitre, args=(keep_running, positions_partagees, verrou_ecran, Nb_process))
+    p_arbitre.start()
+    
+    move_to(Nb_process+10, 1)
+    print("tous lancés, CTRL-C arrêtera la course ...")
+
+    for i in range(Nb_process): mes_process[i].join()
+    p_arbitre.join() # On attend que l'arbitre termine son affichage final
+
+    move_to(24, 1)
+    curseur_visible()
+    print("Fini ... ", flush=True)

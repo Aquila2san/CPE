@@ -6,6 +6,7 @@ layout (location = 2) in vec3 couleur;
 layout (location = 3) in vec2 texCoord;
 
 uniform mat4 model;
+uniform mat4 view;
 uniform mat4 projection;
 
 out vec3 coordonnee_3d;
@@ -21,7 +22,7 @@ void main (void)
   vec4 p = model * vec4(position, 1.0);
   coordonnee_3d_locale = p.xyz;
   
-  gl_Position = projection * p;
+  gl_Position = projection * view * p;
   
   // Les normales ne subissent pas la translation, uniquement la rotation (W = 0.0)
   vec4 n = model * vec4(normale, 0.0);

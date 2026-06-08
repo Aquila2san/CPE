@@ -17,8 +17,12 @@ class Game(object):
         self.init_programs()
         self.init_data()
         
-        self.pos = np.array([0.0, 0.0, -5.0], dtype=np.float32)
+        self.pos = np.array([0.0, 5.0, -5.0], dtype=np.float32)
         self.angle_Y = 0.0
+        
+        self.velocity = np.array([0.0, 0.0, 0.0], dtype=np.float32) # Vitesse initiale
+        self.gravity = np.array([0.0, -9.81, 0.0], dtype=np.float32) # Accélération g = (0, -9.81, 0)
+        self.radius = 1.0
         
 
 
@@ -88,7 +92,6 @@ class Game(object):
     def init_data(self):
         from ctypes import sizeof, c_float, c_void_p
 
-        # Q62 : Génération procédurale de la géométrie de la sphère
         donnees_sphere = Game.generate_sphere(radius=1.0, lat_segments=16, lon_segments=32)
         sommets = donnees_sphere['interlaced']
         index = donnees_sphere['faces']
@@ -190,40 +193,54 @@ class Game(object):
         }
 
     def run(self):
+        last_time = glfw.get_time()
         # boucle d'affichage
         while not glfw.window_should_close(self.window):
-            t = glfw.get_time()
+            current_time = glfw.get_time()
+            dt = current_time - last_time
+            last_time = current_time
+            dt = min(dt, 0.1)
             GL.glClearColor(0.65, 0, 0.35, 1.0)
             GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
             
             prog = GL.glGetIntegerv(GL.GL_CURRENT_PROGRAM) 
             loc_model = GL.glGetUniformLocation(prog, "model")
+            loc_view = GL.glGetUniformLocation(prog, "view")
             loc_proj = GL.glGetUniformLocation(prog, "projection")
             
             # Flèches Gauche/Droite -> Rotation de l'objet autour de l'axe Y
             if glfw.get_key(self.window, glfw.KEY_RIGHT) == glfw.PRESS:
-                self.angle_Y -= 0.03
+                self.angle_Y -= 0.01
             if glfw.get_key(self.window, glfw.KEY_LEFT) == glfw.PRESS:
-                self.angle_Y += 0.03
+                self.angle_Y += 0.01
 
             # Calcul du vecteur directionnel horizontal de l'objet (Forward Vector)
             forward = np.array([np.sin(self.angle_Y), 0.0, -np.cos(self.angle_Y)], dtype=np.float32)
 
             # Flèches Haut/Bas -> Avancer/Reculer dans la direction de l'orientation
             if glfw.get_key(self.window, glfw.KEY_UP) == glfw.PRESS:
-                self.pos += forward * 0.02
+                self.pos += forward * 0.01
             if glfw.get_key(self.window, glfw.KEY_DOWN) == glfw.PRESS:
-                self.pos -= forward * 0.02
-
-            # Touches Y/H -> Ajustement manuel de l'altitude (axe Y)
-            if glfw.get_key(self.window, glfw.KEY_Y) == glfw.PRESS:
-                self.pos[1] += 0.02
-            if glfw.get_key(self.window, glfw.KEY_H) == glfw.PRESS:
-                self.pos[1] -= 0.02
+                self.pos -= forward * 0.01
                 
-            # Calcul de la matrice globale de Projection
+            if glfw.get_key(self.window, glfw.KEY_SPACE) == glfw.PRESS and self.pos[1] <= -0.19:
+                self.velocity[1] = 5.5  # Impulsion verticale initiale vers le haut
+
+            self.velocity += self.gravity * dt
+            self.pos += self.velocity * dt
+            sol_y = -1.2
+            if self.pos[1] - self.radius <= sol_y:
+                self.pos[1] = sol_y + self.radius
+                self.velocity[1] = 0.0
+            
+            # Calcul de la position de la caméra : 3.0 unités derrière l'objet, 1.0 unité au-dessus
+            camera_pos = np.array([self.pos[0], -1.2, self.pos[2]], dtype=np.float32) - (forward * 6.0) + np.array([0.0, 2.5, 0.0], dtype=np.float32)
+            target_fixe = np.array([self.pos[0], -1.2 + self.radius, self.pos[2]], dtype=np.float32)
+            view_matrix = pyrr.matrix44.create_look_at(camera_pos, target_fixe, np.array([0.0, 1.0, 0.0], dtype=np.float32))
             proj_matrix = pyrr.matrix44.create_perspective_projection_matrix(50.0, 1.0, 0.5, 10.0)
+            
             GL.glUniformMatrix4fv(loc_proj, 1, GL.GL_FALSE, proj_matrix)
+            GL.glUniformMatrix4fv(loc_view, 1, GL.GL_FALSE, view_matrix)
             
             GL.glBindVertexArray(self.vao)
             
@@ -238,12 +255,12 @@ class Game(object):
             GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id1)
             GL.glDrawElements(GL.GL_TRIANGLES, self.nb_indices, GL.GL_UNSIGNED_INT, None)
             
-            model_obj2 = pyrr.matrix44.create_from_translation(np.array([1.5, 0.0, -5.0]))
+            model_obj2 = pyrr.matrix44.create_from_translation(np.array([2.0, -1.2 + self.radius, -5.0]))
             GL.glUniformMatrix4fv(loc_model, 1, GL.GL_FALSE, model_obj2)
             GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id1) 
             GL.glDrawElements(GL.GL_TRIANGLES, self.nb_indices, GL.GL_UNSIGNED_INT, None)
             
-            model_obj3 = pyrr.matrix44.create_from_translation(np.array([1.5, -1.2, -5.0]))
+            model_obj3 = pyrr.matrix44.create_from_translation(np.array([-2.0, -1.2 + self.radius, -5.0]))
             GL.glUniformMatrix4fv(loc_model, 1, GL.GL_FALSE, model_obj3)
             GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture_id2) 
             GL.glDrawElements(GL.GL_TRIANGLES, self.nb_indices, GL.GL_UNSIGNED_INT, None)
